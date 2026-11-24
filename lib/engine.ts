@@ -137,6 +137,7 @@ export function evaluate(ctx: MonthCtx, R: Roles[], allowStar: boolean, detail =
       let tot = 0, n = 0;
       w.forEach(([m, d]) => { const v = H[p][`${m}-${d}`]; if (v) { tot += v; n++; } });
       if (tot > LIMITS.weeklyMax) { sc += WEIGHTS.overWeeklyPerHour * (tot - LIMITS.weeklyMax); push("bad", `${p}: ${mLabel(w[0][0])}/${w[0][1]}~ 주 <b>${fmtH(tot)}시간</b> (52시간 초과)`); }
+      if ((DRINK as readonly string[]).includes(p)) sc += WEIGHTS.weeklyOverHour * Math.max(0, tot - LIMITS.weeklyBase);
       if (w.length === 7 && n === 7) { sc += WEIGHTS.noDayOffInWeek; push("bad", `${p}: ${mLabel(w[0][0])}/${w[0][1]}~ 주에 쉬는 날이 없음`); }
     });
   });

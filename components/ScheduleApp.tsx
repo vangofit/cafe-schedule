@@ -13,6 +13,7 @@ import { ALL, DRINK, HOLIDAYS, SHIFT, WEEKDAY_KO } from "@/lib/rules";
 import { db, store, type DbRequest, type DbStaff } from "@/lib/db";
 import { MonthSettings, SwapsPanel, PayPanel } from "./OwnerPanels";
 import { finalPay } from "@/lib/pay";
+import { solveOnServer } from "@/lib/cpsat";
 import { exportExcel, exportImage } from "@/lib/exporters";
 import type { Swap } from "@/lib/engine";
 
@@ -77,6 +78,7 @@ function Owner({ session, onLogout }: { session: string; onLogout: () => void })
   const [swaps, setSwaps] = useState<Swap[]>([]);
   const [today, setToday] = useState(new Date().toISOString().slice(0, 10));
   const [exporting, setExporting] = useState(false);
+  const [engine, setEngine] = useState("");
   const exportRef = useRef<HTMLDivElement>(null);
   const ym = ymOf(m);
   const flash = (t: string) => { setToast(t); setTimeout(() => setToast(""), 2000); };
@@ -127,8 +129,15 @@ function Owner({ session, onLogout }: { session: string; onLogout: () => void })
   const runSolve = () => {
     setBusy(true);
     setTimeout(async () => {
-      const t = performance.now(); const R = solve(ctx, allowStar, roles); setMs(performance.now() - t);
-      setRoles(R); await save(R, status, allowStar); setBusy(false); flash(`${mLabel(m)}월 근무표를 짜고 저장했어요`);
+      const t = performance.now(); let R: Roles[] | null = null; let eng = "OR-Tools";
+      try {
+        const ctl = new AbortController(); const timer = setTimeout(() => ctl.abort(), 30000);
+        const res = await solveOnServer(ctx, allowStar, roles, ctl.signal); clearTimeout(timer);
+        if (res.roles) { R = res.roles; eng = `OR-Tools${res.status === "OPTIMAL" ? " · 최적해" : ""}`; }
+      } catch { /* 서버 엔진이 안 되면 보조 엔진 */ }
+      if (!R) { R = solve(ctx, allowStar, roles); eng = "보조 엔진"; }
+      setMs(performance.now() - t); setEngine(eng);
+      setRoles(R); await save(R, status, allowStar); setBusy(false); flash(`${mLabel(m)}월 근무표를 짜고 저장했어요 (${eng})`);
     }, 30);
   };
   const publish = async (to: "draft" | "published") => { if (!roles) return; setStatus(to); await save(roles, to, allowStar); flash(to === "published" ? "직원 링크에 근무표를 공개했어요" : "공개를 취소했어요"); };
@@ -183,7 +192,7 @@ function Owner({ session, onLogout }: { session: string; onLogout: () => void })
                   <Kpi l="평일 오픈" v={<>{ev.staffOpens}<small> 직원</small> {ev.eSup}<small> E지원</small> {ev.stars}<small> ★</small></>} />
                   <Kpi l="음료 직원 월 근로시간" v={<>{fmtH(Math.min(...Object.values(ev.hours)))}~{fmtH(Math.max(...Object.values(ev.hours)))}<small>h</small></>} />
                   <Kpi l="E 조퇴 가능 일수" v={<>{ev.eSup}<small>일</small></>} />
-                  {ms != null && <Kpi l="편성 시간" v={<>{(ms / 1000).toFixed(1)}<small>초</small></>} />}
+                  {ms != null && <Kpi l="편성 엔진" v={<>{(ms / 1000).toFixed(1)}<small>초 · {engine}</small></>} />}
                 </div>
                 <div className="alerts">
                   {ev.issues.length ? ev.issues.map(([t, msg], i) => <div key={i} className={`a-${t}`} dangerouslySetInnerHTML={{ __html: `${t === "bad" ? "⛔" : "⚠️"} ${msg}` }} />)

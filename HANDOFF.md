@@ -46,6 +46,14 @@
 - 마이그레이션 `0003_features.sql` 적용됨 (owner_state/staff_info 응답에 month·swaps·today 추가)
 - 테스트: 엔진 점검에 바쁜 날·교환 추가, 흉내 DB 브라우저 테스트로 5개 기능 전부 통과 (PNG·xlsx 실제 파일 열어 확인)
 
+### 2026-11-24 (6) — 편성 엔진 OR-Tools 교체
+- `api/solve.py`: Vercel Python 함수(OR-Tools CP-SAT). 반드시 규칙(필수 자리 정확히 1명 또는 빈자리 벌점, 하루 1자리, 요청 반영, 주 52h, 꽉 찬 주 휴무 1일, 7일 연속 금지)은 제약, 나머지는 점수. 시간 제한 8초
+- `lib/cpsat.ts` `buildProblem`: 날짜·시간대·휴게·공휴일·바쁜 날·요청은 TS 엔진이 계산해 '문제'로 보냄 (규칙 한 곳에서 관리)
+- 화면: 자동 편성 → `/api/solve` 호출, 실패하면 브라우저 보조 엔진(기존 담금질)으로 자동 대체. KPI에 '편성 엔진' 표시
+- 점수에 `weeklyOverHour`(주 40h 초과 1시간당 2) 추가 → E 지원·★와 연장근로 부담의 균형. 대표님 선호에 따라 `lib/rules.ts` WEIGHTS 조정
+- 비교 `scripts/compare.ts` (node --experimental-strip-types): 같은 조건에서 OR-Tools가 점수 더 낮음(=더 좋음), 연속근무 경고 0, 빡빡한 달 빈자리는 규칙상 불가능한 자리만 남음
+- `vercel.json`: api/solve.py maxDuration 30초. `requirements.txt`: ortools
+
 ## 실행
 ```
 npm install

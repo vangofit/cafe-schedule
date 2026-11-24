@@ -47,7 +47,7 @@
 ## 권장 스택
 - 프론트: Next.js(React) + Vercel (형민이 React/Vercel 경험 있음)
 - DB/인증: Supabase (Supabase·Vercel 연결 도구 사용 가능)
-- 엔진: Python FastAPI + OR-Tools. 배포는 Render 또는 Google Cloud Run (Vercel Python 함수에 OR-Tools가 올라가는지는 확인 필요)
+- 엔진: Python OR-Tools CP-SAT — `api/solve.py` (Vercel Python 함수). 문제 생성은 `lib/cpsat.ts`. 실패 시 브라우저 보조 엔진
 - AI: 요청 문장 → JSON 파싱, 근무표 설명 (Claude API)
 
 ## 디자인 콘셉트 — "달이 비치는 집"

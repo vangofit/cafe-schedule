@@ -57,6 +57,7 @@ export const WEIGHTS = {
   fairHours: 3,
   fairShiftCount: 4,
   closeThenOpen: 4,
+  weeklyOverHour: 2, // 주 40시간 넘는 1시간마다 (연장수당 부담) — E 지원·★와 균형
 };
 
 // 바쁜 날 추천 (평일인데 손님이 몰릴 만한 날). 매출 데이터가 쌓이면 데이터 기반으로 바꾼다.
