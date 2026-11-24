@@ -85,3 +85,7 @@ npm run test:engine  # 엔진 점검
 - F 주휴 판정: FinalRow.maxWeek, 주 15h 이상이면 경고. 11월 근무표로 F 최대 주 15.3h → 주휴수당 대상 주 있음(대표님 확인).
 - `LAW_CHECK` 점검표를 규칙 탭에 표시. HOLIDAYS에 출처 주석, 2027 노동절(5/1)·제헌절(7/17) 등은 달 확장 시 추가할 것.
 - 남은 확인: 실제 퇴근 시각, F 만 18세 미만 여부, 포괄임금 계약에 야간 포함 여부.
+
+## (9) Supabase 일시정지 방지 (2026-11-24)
+- 무료 플랜은 7일 무활동 시 일시정지 → `ping()` RPC(0004_keepalive.sql, 적용 완료) + `app/api/keepalive/route.ts` + vercel.json cron(매일 18:17 UTC = 03:17 KST).
+- 확인: https://cafe-schedule-azure.vercel.app/api/keepalive → {"status":200,...}. 유료 플랜 전환 시 제거해도 됨.

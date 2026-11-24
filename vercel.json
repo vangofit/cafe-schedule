@@ -5,5 +5,11 @@
       "maxDuration": 30,
       "excludeFiles": "{node_modules/**,demo/**,reference/**,engine/**,scripts/**,supabase/**,.next/**,app/**,components/**,lib/**,public/**}"
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/keepalive",
+      "schedule": "17 18 * * *"
+    }
+  ]
 }
