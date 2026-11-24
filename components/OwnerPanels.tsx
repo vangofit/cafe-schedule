@@ -2,7 +2,7 @@
 // 대표님 화면 보조 패널: 요청 마감·바쁜 날, 대타·교환 승인, 급여 설정·최종 지급분
 import { useState } from "react";
 import { applySwap, dayType, daysIn, dow, evaluate, fmtH, hkey, mLabel, ymOf, type MonthCtx, type Roles, type Swap } from "@/lib/engine";
-import { BUSY_SUGGEST, HOLIDAYS, WEEKDAY_KO } from "@/lib/rules";
+import { BUSY_SUGGEST, HOLIDAYS, MIN_WAGE, WEEKDAY_KO } from "@/lib/rules";
 import { db, type DbRequest, type DbStaff } from "@/lib/db";
 import type { FinalRow } from "@/lib/pay";
 
@@ -97,9 +97,10 @@ export function SwapsPanel({ m, session, swaps, roles, ctx, allowStar, onApply, 
   );
 }
 
-export function PayPanel({ session, staff, final, onSaved, onFail, onExcel }: {
-  session: string; staff: DbStaff[]; final: FinalRow[]; onSaved: () => void; onFail: (e: unknown) => void; onExcel: () => void;
+export function PayPanel({ session, staff, final, year, onSaved, onFail, onExcel }: {
+  session: string; staff: DbStaff[]; final: FinalRow[]; year: number; onSaved: () => void; onFail: (e: unknown) => void; onExcel: () => void;
 }) {
+  const minW = MIN_WAGE[year];
   const [edit, setEdit] = useState<Record<string, { wage: string; comp: string }>>(() => Object.fromEntries(staff.map((s) => [s.code, { wage: s.wage ? String(s.wage) : "", comp: String(s.comp_ot ?? 0) }])));
   const save = async (code: string) => { const e = edit[code]; try { await db.setStaffPay(session, code, e.wage ? +e.wage : null, +e.comp || 0); onSaved(); } catch (er) { onFail(er); } };
   return (
@@ -110,21 +111,26 @@ export function PayPanel({ session, staff, final, onSaved, onFail, onExcel }: {
       </div>
       <div style={{ overflowX: "auto", marginTop: 10 }}>
         <table className="tbl" style={{ minWidth: 720 }}>
-          <thead><tr><th>직원</th><th>시급(원)</th><th>포괄 포함 연장(h)</th><th>월 근로</th><th>일반 연장</th><th>추가 지급 연장</th><th>휴일근로</th><th>휴일 8h 초과</th><th>예상 추가 수당</th></tr></thead>
+          <thead><tr><th>직원</th><th>시급(원)</th><th>포괄 포함 연장(h)</th><th>월 근로</th><th>일반 연장</th><th>추가 지급 연장</th><th>휴일근로</th><th>휴일 8h 초과</th><th>야간(22~06)</th><th>예상 추가 수당</th></tr></thead>
           <tbody>
             {final.map((f) => (
               <tr key={f.code}>
                 <td><b>{f.code}</b></td>
-                <td><input type="number" style={{ width: 90 }} value={edit[f.code]?.wage ?? ""} placeholder="미입력" onChange={(e) => setEdit({ ...edit, [f.code]: { ...edit[f.code], wage: e.target.value } })} onBlur={() => save(f.code)} /></td>
+                <td><input type="number" style={{ width: 90, borderColor: minW && edit[f.code]?.wage && +edit[f.code].wage < minW ? "var(--hong)" : undefined }} value={edit[f.code]?.wage ?? ""} placeholder="미입력" onChange={(e) => setEdit({ ...edit, [f.code]: { ...edit[f.code], wage: e.target.value } })} onBlur={() => save(f.code)} />
+                  {minW && edit[f.code]?.wage && +edit[f.code].wage < minW ? <div className="mini" style={{ color: "var(--hong)" }}>최저임금 {minW.toLocaleString()}원 미만</div> : null}</td>
                 <td><input type="number" style={{ width: 70 }} value={edit[f.code]?.comp ?? "0"} onChange={(e) => setEdit({ ...edit, [f.code]: { ...edit[f.code], comp: e.target.value } })} onBlur={() => save(f.code)} /></td>
-                <td>{fmtH(f.tot)}</td><td>{fmtH(f.generalOT)}</td><td><b>{fmtH(f.payableOT)}</b></td><td>{fmtH(f.hol8)}</td><td>{fmtH(f.holOT)}</td>
+                <td>{fmtH(f.tot)}</td><td>{fmtH(f.generalOT)}</td><td><b>{fmtH(f.payableOT)}</b></td><td>{fmtH(f.hol8)}</td><td>{fmtH(f.holOT)}</td><td>{fmtH(f.night)}</td>
                 <td><b>{f.money != null ? `${f.money.toLocaleString()}원` : "—"}</b></td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <p className="mini" style={{ marginTop: 8 }}>예상 추가 수당 = 추가 지급 연장×시급×1.5 + 휴일근로(8h 이내)×1.5 + 휴일 8h 초과×2.0. 세무사·노무사 확인용 참고값이에요.</p>
+      <p className="mini" style={{ marginTop: 8 }}>예상 추가 수당 = 추가 지급 연장×시급×1.5 + 휴일근로(8h 이내)×1.5 + 휴일 8h 초과×2.0 + 야간×0.5. 세무사·노무사 확인용 참고값이에요.</p>
+      <div className="alerts">
+        <div className="a-warn">야간(22:00~06:00) 근로는 실제 일한 시간 기준으로 50% 가산 대상이에요(근로기준법 제56조 제3항). 지금은 근무표의 퇴근 시각(22:30)으로 계산해요. 실제 퇴근이 22:00 전이면 0으로 바뀌어요.</div>
+        {(() => { const f = final.find((x) => x.code === "F"); return f && f.maxWeek >= 15 ? <div className="a-warn">F의 주 근로시간이 15시간 이상인 주가 있어요({fmtH(f.maxWeek)}h) → 주휴수당 대상이에요.</div> : f && f.maxWeek > 0 ? <div className="a-ok">F 주 근로시간 최대 {fmtH(f.maxWeek)}h (15시간 미만 → 주휴수당 대상 아님). 마감 시각이 늦어지면 바뀔 수 있어요.</div> : null; })()}
+      </div>
     </div>
   );
 }

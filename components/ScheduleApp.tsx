@@ -223,7 +223,7 @@ function Owner({ session, onLogout }: { session: string; onLogout: () => void })
         </div>
       ) : null)}
       {!loading && tab === "pay" && (ev ? (
-        <PayPanel key={m} session={session} staff={staff} final={finalPay(payWeeks!, staff.map((s) => ({ code: s.code, wage: s.wage, comp_ot: Number(s.comp_ot) || 0 })))}
+        <PayPanel key={m} year={+ymOf(m).slice(0, 4)} session={session} staff={staff} final={finalPay(payWeeks!, staff.map((s) => ({ code: s.code, wage: s.wage, comp_ot: Number(s.comp_ot) || 0 })))}
           onSaved={() => load(true)} onFail={fail}
           onExcel={async () => { try { await exportExcel(m, ev.days, payWeeks!, finalPay(payWeeks!, staff.map((s) => ({ code: s.code, wage: s.wage, comp_ot: Number(s.comp_ot) || 0 })))); } catch { flash("엑셀 만들기에 실패했어요"); } }} />
       ) : <div className="card"><p className="hint">근무표를 먼저 편성해 주세요.</p></div>)}

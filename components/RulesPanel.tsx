@@ -1,4 +1,5 @@
-// 10·11월 근무표에서 찾아낸 규칙 (대표님께 보여주는 설명 화면)
+// 10·11월 근무표에서 찾아낸 규칙 + 근로기준법 점검표
+import { LAW_CHECK } from "@/lib/rules";
 const RULES: [string, string, string][] = [
   ["직원 구성", "음료 A·B·C·D, 디저트 E, 주말 아르바이트 F → 상시 5인 이상이라 연장·휴일 가산수당, 주 52시간 적용", "스케줄표 범례, 수당표 항목"],
   ["평일 음료 3자리", "오픈 09:00–16:30(금 09:00–18:00) · 미들 12:30–22:30 · 마감 14:00–22:30", "11월 평일 대부분"],
@@ -21,6 +22,16 @@ export default function RulesPanel() {
         <ol className="rules">
           {RULES.map(([t, body, ev]) => <li key={t}><b>{t}:</b> {body}<span className="ev">근거: {ev}</span></li>)}
         </ol>
+      </div>
+      <div className="card">
+        <h2>근로기준법 점검표</h2>
+        <p className="hint">상시 5인 이상 사업장 기준으로 시스템이 지키는 조항이에요.</p>
+        <div style={{ overflowX: "auto" }}>
+          <table className="tbl" style={{ minWidth: 620, textAlign: "left" }}>
+            <thead><tr><th>조항</th><th>기준</th><th>시스템에서</th></tr></thead>
+            <tbody>{LAW_CHECK.map(([a, b, c]) => <tr key={a}><td style={{ textAlign: "left" }}><b>{a}</b></td><td style={{ textAlign: "left" }}>{b}</td><td style={{ textAlign: "left" }}>{c}</td></tr>)}</tbody>
+          </table>
+        </div>
       </div>
       <div className="card">
         <h2>대표님께 확인할 것</h2>

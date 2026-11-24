@@ -40,15 +40,15 @@ export async function exportExcel(m: number, days: Day[], weeks: PayWeek[], fina
   head(s1);
 
   const s2 = wb.addWorksheet("주별 근로");
-  s2.columns = [{ header: "주", width: 18 }, { header: "직원", width: 6 }, { header: "근로시간", width: 10 }, { header: "일 8h 초과", width: 11 }, { header: "주 40h 초과", width: 11 }, { header: "휴일근로(8h 이내)", width: 16 }, { header: "휴일 8h 초과", width: 12 }, { header: "52시간", width: 8 }];
+  s2.columns = [{ header: "주", width: 18 }, { header: "직원", width: 6 }, { header: "근로시간", width: 10 }, { header: "일 8h 초과", width: 11 }, { header: "주 40h 초과", width: 11 }, { header: "휴일근로(8h 이내)", width: 16 }, { header: "휴일 8h 초과", width: 12 }, { header: "야간(22~06)", width: 11 }, { header: "52시간", width: 8 }];
   weeks.forEach(({ w, rows }) => ALL.forEach((p) => { const r = rows[p]; if (!r.n) return;
-    s2.addRow([`${mLabel(w[0][0])}/${w[0][1]}~${mLabel(w[w.length - 1][0])}/${w[w.length - 1][1]}`, p, r.tot, r.dOT, r.wOT, r.hol8, r.holOT, r.tot > 52 ? "초과" : "정상"]); }));
+    s2.addRow([`${mLabel(w[0][0])}/${w[0][1]}~${mLabel(w[w.length - 1][0])}/${w[w.length - 1][1]}`, p, r.tot, r.dOT, r.wOT, r.hol8, r.holOT, r.night, r.tot > 52 ? "초과" : "정상"]); }));
   head(s2);
 
   const s3 = wb.addWorksheet("월 합계·지급분");
-  s3.columns = [{ header: "직원", width: 6 }, { header: "월 근로시간", width: 12 }, { header: "일반 연장(합계)", width: 15 }, { header: "포괄임금 포함", width: 13 }, { header: "추가 지급 연장", width: 14 }, { header: "휴일근로(8h 이내)", width: 16 }, { header: "휴일 8h 초과", width: 12 }, { header: "예상 추가 수당(원)", width: 18 }];
-  final.forEach((f) => s3.addRow([f.code, f.tot, f.generalOT, f.compOT, f.payableOT, f.hol8, f.holOT, f.money ?? "시급 미입력"]));
-  s3.addRow([]); s3.addRow(["※ 예상 추가 수당 = 추가 지급 연장×시급×1.5 + 휴일 8h 이내×1.5 + 휴일 8h 초과×2.0 (세무사 확인용 참고값)"]);
+  s3.columns = [{ header: "직원", width: 6 }, { header: "월 근로시간", width: 12 }, { header: "일반 연장(합계)", width: 15 }, { header: "포괄임금 포함", width: 13 }, { header: "추가 지급 연장", width: 14 }, { header: "휴일근로(8h 이내)", width: 16 }, { header: "휴일 8h 초과", width: 12 }, { header: "야간(22~06)", width: 11 }, { header: "예상 추가 수당(원)", width: 18 }];
+  final.forEach((f) => s3.addRow([f.code, f.tot, f.generalOT, f.compOT, f.payableOT, f.hol8, f.holOT, f.night, f.money ?? "시급 미입력"]));
+  s3.addRow([]); s3.addRow(["※ 예상 추가 수당 = 추가 지급 연장×시급×1.5 + 휴일 8h 이내×1.5 + 휴일 8h 초과×2.0 + 야간×0.5 (근로기준법 제56조, 세무사 확인용 참고값)"]);
   head(s3);
 
   const buf = await wb.xlsx.writeBuffer();

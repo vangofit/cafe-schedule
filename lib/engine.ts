@@ -224,21 +224,37 @@ export function solve(ctx: MonthCtx, allowStar: boolean, prev: Roles[] | null, i
 }
 
 // ───── 수당 계산 (월~일 주 단위) ─────
-export interface PayRow { tot: number; dOT: number; wOT: number; hol8: number; holOT: number; n: number }
+export interface PayRow { tot: number; dOT: number; wOT: number; hol8: number; holOT: number; night: number; n: number }
 export interface PayWeek { w: [number, number][]; rows: Record<string, PayRow> }
+/** 22:00~06:00과 겹치는 시간 (근무표 시각 기준) */
+export function nightOf(t: string) {
+  const [a, b] = t.split("-"); const h = (s: string) => +s.slice(0, 2) + +s.slice(2) / 60;
+  const s = h(a), e = h(b === "마감" ? F_END : b) + (h(b === "마감" ? F_END : b) <= h(a) ? 24 : 0);
+  return Math.max(0, Math.min(e, LIMITS.night.to) - Math.max(s, LIMITS.night.from));
+}
+export function dayNight(day: Day): Record<string, number> {
+  const n: Record<string, number> = {};
+  day.drink.forEach((s) => { if (s.who) n[s.who] = (n[s.who] || 0) + nightOf(s.t); });
+  if (day.dessert && !(day.drink.some((s) => s.who === "E"))) n.E = (n.E || 0) + nightOf(day.dessert);
+  if (day.f) n.F = (n.F || 0) + nightOf(day.f);
+  return n;
+}
 export function payroll(days: Day[], weeks: [number, number][][]): PayWeek[] {
-  const H: Record<string, Record<string, number>> = {};
-  days.forEach((day) => { const h = dayHours(day); for (const p in h) (H[p] = H[p] || {})[`${day.m}-${day.d}`] = h[p]; });
+  const H: Record<string, Record<string, number>> = {}, NH: Record<string, Record<string, number>> = {};
+  days.forEach((day) => {
+    const h = dayHours(day); for (const p in h) (H[p] = H[p] || {})[`${day.m}-${day.d}`] = h[p];
+    const n = dayNight(day); for (const p in n) (NH[p] = NH[p] || {})[`${day.m}-${day.d}`] = n[p];
+  });
   return weeks.map((w) => {
     const rows: Record<string, PayRow> = {};
     ALL.forEach((p) => {
-      let tot = 0, reg = 0, dOT = 0, hol8 = 0, holOT = 0, n = 0;
+      let tot = 0, reg = 0, dOT = 0, hol8 = 0, holOT = 0, n = 0, night = 0;
       w.forEach(([m, d]) => {
-        const v = (H[p] || {})[`${m}-${d}`]; if (!v) return; n++; tot += v;
+        const v = (H[p] || {})[`${m}-${d}`]; if (!v) return; n++; tot += v; night += (NH[p] || {})[`${m}-${d}`] || 0;
         if (HOLIDAYS[hkey(m, d)]) { hol8 += Math.min(v, LIMITS.dailyBase); holOT += Math.max(0, v - LIMITS.dailyBase); }
         else { reg += Math.min(v, LIMITS.dailyBase); dOT += Math.max(0, v - LIMITS.dailyBase); }
       });
-      rows[p] = { tot, dOT, wOT: Math.max(0, reg - LIMITS.weeklyBase), hol8, holOT, n };
+      rows[p] = { tot, dOT, wOT: Math.max(0, reg - LIMITS.weeklyBase), hol8, holOT, night, n };
     });
     return { w, rows };
   });

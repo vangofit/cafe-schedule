@@ -18,15 +18,16 @@ export default function PayTables({ weeks, title, partialNote }: { weeks: PayWee
             <div className="wk" key={`${a[0]}-${a[1]}`}>
               <h3>{mLabel(a[0])}월 {a[1]}일 ~ {mLabel(b[0])}월 {b[1]}일 {w.length < 7 && <span className="mini">({partialNote})</span>}</h3>
               <table>
-                <thead><tr><th>직원</th><th>근로</th><th>일8h초과</th><th>주40h초과</th><th>휴일근로</th><th>52h</th></tr></thead>
+                <thead><tr><th>직원</th><th>근로</th><th>일8h초과</th><th>주40h초과</th><th>휴일근로</th><th>야간</th><th>52h</th></tr></thead>
                 <tbody>
                   {ALL.map((p) => {
                     const r = rows[p];
-                    if (!r.n) return <tr key={p}><td>{p}</td><td colSpan={5} style={{ color: "#aaa" }}>근무 없음</td></tr>;
+                    if (!r.n) return <tr key={p}><td>{p}</td><td colSpan={6} style={{ color: "#aaa" }}>근무 없음</td></tr>;
                     return (
                       <tr key={p}>
                         <td><b>{p}</b></td><td>{fmtH(r.tot)}</td><td>{fmtH(r.dOT)}</td><td>{fmtH(r.wOT)}</td>
                         <td>{r.hol8 ? `${fmtH(r.hol8)}${r.holOT ? "+" + fmtH(r.holOT) : ""}` : "0"}</td>
+                        <td>{fmtH(r.night)}</td>
                         <td>{r.tot > 52 ? <span className="over">초과</span> : "✓"}</td>
                       </tr>
                     );
