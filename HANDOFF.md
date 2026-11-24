@@ -25,7 +25,7 @@ npm run test:engine  # 엔진 점검
 - 저장 없음: 새로고침하면 요청·근무표가 사라짐
 - 편성(`solve`)이 브라우저 메인 스레드에서 약 4초 → 2단계에서 서버(OR-Tools)로 이동
 - 편성 달이 12월로 고정 (`ScheduleApp.tsx`의 `MONTH`, 직전 달 데이터는 `NOV_2026`)
-- 배포 안 함 (Vercel 연결은 형민 확인 후)
+- 배포: https://cafe-schedule-azure.vercel.app (Vercel 프로젝트 cafe-schedule, main 푸시마다 자동 배포, 현재 누구나 접근 가능 → 2단계에서 로그인)
 
 ## 다음 할 일 (2단계)
 1. Supabase 테이블: staff, settings(rules), requests, schedules(월), schedule_days → 근무표·요청 저장
