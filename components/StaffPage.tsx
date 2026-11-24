@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { daysIn, dow, fmtH, mLabel, toDay, work, ymOf, type Roles } from "@/lib/engine";
 import { HOLIDAYS, WEEKDAY_KO } from "@/lib/rules";
 import { db } from "@/lib/db";
+import Brand from "./Brand";
 
 const MONTHS = [12, 13];
 type Info = NonNullable<Awaited<ReturnType<typeof db.staffInfo>>>;
@@ -24,8 +25,8 @@ export default function StaffPage({ token }: { token: string }) {
   }, [token, ym]);
   useEffect(() => { setInfo(undefined); load(); }, [load]);
 
-  if (info === undefined) return <div className="wrap"><p className="hint">불러오는 중…</p></div>;
-  if (info === null) return <div className="wrap" style={{ maxWidth: 480 }}><div className="card"><h2>링크를 확인해 주세요</h2><p className="hint">유효하지 않은 링크예요. 대표님께 개인 링크를 다시 받아주세요.</p></div></div>;
+  if (info === undefined) return <><Brand /><div className="wrap"><p className="hint">불러오는 중…</p></div></>;
+  if (info === null) return <><Brand /><div className="wrap" style={{ maxWidth: 480 }}><div className="card"><h2>링크를 확인해 주세요</h2><p className="hint">유효하지 않은 링크예요. 대표님께 개인 링크를 다시 받아주세요.</p></div></div></>;
 
   const me = info.code;
   const myShifts = info.published ? myShiftList(m, info.published, me) : null;
@@ -37,14 +38,12 @@ export default function StaffPage({ token }: { token: string }) {
   };
 
   return (
+    <>
+    <Brand sub={`· ${me}님`} right={
+      <select value={m} onChange={(e) => setM(+e.target.value)}>
+        {MONTHS.map((x) => <option key={x} value={x}>{ymOf(x).replace("-", "년 ")}월</option>)}
+      </select>} />
     <div className="wrap" style={{ maxWidth: 560 }}>
-      <div className="top" style={{ justifyContent: "space-between" }}>
-        <div className="badge">{info.store} · 직원 {me}</div>
-        <select value={m} onChange={(e) => setM(+e.target.value)} style={{ fontWeight: 800 }}>
-          {MONTHS.map((x) => <option key={x} value={x}>{ymOf(x).replace("-", "년 ")}월</option>)}
-        </select>
-      </div>
-
       <div className="card">
         <h2>{mLabel(m)}월 내 근무</h2>
         {myShifts ? (
@@ -67,8 +66,8 @@ export default function StaffPage({ token }: { token: string }) {
             const d = i + 1, mine = info.requests.find((r) => r.day === d && r.status !== "rejected"), on = day === d;
             return (
               <button key={d} onClick={() => setDay(on ? null : d)} style={{
-                border: on ? "2px solid #111" : "1px solid var(--line)", borderRadius: 9, padding: "8px 0", fontWeight: 700,
-                background: mine ? (mine.type === "lv" ? "#e6ebff" : "#ffe3f1") : "#fff", color: dow(m, d) === 0 ? "#e4131b" : "inherit",
+                border: on ? "2px solid var(--night)" : "1px solid var(--line)", borderRadius: 9, padding: "8px 0", fontWeight: 700,
+                background: on ? "var(--moonSoft)" : mine ? (mine.type === "lv" ? "var(--cheongSoft)" : "var(--hongSoft)") : "#fff", color: dow(m, d) === 0 ? "var(--hong)" : "inherit", fontFamily: "var(--serif)", fontSize: 15,
               }}>{d}</button>
             );
           })}
@@ -78,7 +77,7 @@ export default function StaffPage({ token }: { token: string }) {
           <button className={`btn small ${type === "lv" ? "" : "line"}`} onClick={() => setType("lv")}>연차</button>
           <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="메모 (선택)" style={{ flex: 1, minWidth: 120 }} maxLength={100} />
         </div>
-        <button className="btn pink" style={{ width: "100%", marginTop: 10 }} disabled={!day || busy} onClick={send}>
+        <button className="btn moon" style={{ width: "100%", marginTop: 10 }} disabled={!day || busy} onClick={send}>
           {day ? `${mLabel(m)}/${day} ${type === "lv" ? "연차" : "휴무"} 요청 보내기` : "날짜를 먼저 고르세요"}
         </button>
         {msg && <div className="alerts"><div className="a-ok">{msg}</div></div>}
@@ -99,6 +98,7 @@ export default function StaffPage({ token }: { token: string }) {
       </div>
       <p className="mini">이 링크는 {me}님 전용이에요. 다른 사람에게 공유하지 마세요.</p>
     </div>
+    </>
   );
 }
 

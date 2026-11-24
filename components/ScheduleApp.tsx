@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import Calendar from "./Calendar";
 import PayTables from "./PayTables";
 import RulesPanel from "./RulesPanel";
+import Brand, { MoonMark } from "./Brand";
 import {
   avail, dayType, daysIn, dow, evaluate, fmtH, hkey, mLabel, missingMarks, payroll, ruleParse, slotTimes, solve, toDay, weeksOf, ymOf,
   type Day, type MonthCtx, type Req, type Roles,
@@ -34,16 +35,18 @@ function Login({ onLogin }: { onLogin: (s: string) => void }) {
     setBusy(false);
   };
   return (
-    <div className="wrap" style={{ maxWidth: 420, paddingTop: 60 }}>
-      <div className="badge" style={{ display: "inline-block" }}>카페 A 근무표</div>
-      <form className="card" onSubmit={submit}>
-        <h2>대표님 로그인</h2>
-        <p className="hint">비밀번호를 넣으면 이 기기에서 30일 동안 로그인이 유지돼요.</p>
+    <div className="night">
+      <div className="moonBig" /><div className="reflect" />
+      <form className="loginCard" onSubmit={submit}>
+        <MoonMark size={52} />
+        <div className="han" style={{ marginTop: 10 }}>月 映 堂</div>
+        <h1>월영당 근무표</h1>
+        <p className="hint" style={{ marginTop: 6 }}>대표님 비밀번호를 넣어주세요. 이 기기에서 30일 동안 로그인이 유지돼요.</p>
         <input type="password" value={pass} onChange={(e) => setPass(e.target.value)} placeholder="비밀번호" style={{ width: "100%", marginBottom: 10 }} autoFocus />
-        <button className="btn" disabled={busy || !pass} style={{ width: "100%" }}>{busy ? "확인 중…" : "들어가기"}</button>
+        <button className="btn moon" disabled={busy || !pass} style={{ width: "100%" }}>{busy ? "확인 중…" : "들어가기"}</button>
         {err && <div className="alerts"><div className="a-bad">{err}</div></div>}
+        <p className="mini" style={{ marginTop: 14, marginBottom: 0 }}>직원분은 대표님께 받은 개인 링크로 들어오세요.</p>
       </form>
-      <p className="mini">직원분은 대표님께 받은 개인 링크로 들어오세요.</p>
     </div>
   );
 }
@@ -117,22 +120,23 @@ function Owner({ session, onLogout }: { session: string; onLogout: () => void })
   };
   const publish = async (to: "draft" | "published") => { if (!roles) return; setStatus(to); await save(roles, to, allowStar); flash(to === "published" ? "직원 링크에 근무표를 공개했어요" : "공개를 취소했어요"); };
 
-  const tabs: [Tab, string][] = [["sched", "근무표"], ["req", `요청${pending.length ? ` (${pending.length})` : ""}`], ["pay", "수당표"], ["links", "직원 링크"], ["rules", "규칙"], ["nov", "11월 검사"]];
+  const tabs: [Tab, string, string][] = [["sched", "🗓", "근무표"], ["req", "✉", "요청"], ["pay", "₩", "수당표"], ["links", "🔗", "직원"], ["rules", "📜", "규칙"], ["nov", "🔍", "11월 검사"]];
 
   return (
+    <>
+    <Brand right={<>
+      <select value={m} onChange={(e) => { setRoles(null); setLoading(true); setM(+e.target.value); }}>
+        {MONTHS.map((x) => <option key={x} value={x}>{ymOf(x).replace("-", "년 ")}월</option>)}
+      </select>
+      {savedAt && <span className="mini">💾 {new Date(savedAt).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })} 저장</span>}
+      <button className="btn line small" onClick={onLogout}>로그아웃</button>
+    </>} />
     <div className="wrap">
-      <div className="top" style={{ justifyContent: "space-between" }}>
-        <div className="row"><div className="badge">카페 A 근무표</div>
-          <select value={m} onChange={(e) => { setRoles(null); setLoading(true); setM(+e.target.value); }} style={{ fontWeight: 800 }}>
-            {MONTHS.map((x) => <option key={x} value={x}>{ymOf(x).replace("-", "년 ")}월</option>)}
-          </select>
-        </div>
-        <div className="row">
-          {savedAt && <span className="mini">💾 저장됨 {new Date(savedAt).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>}
-          <button className="btn line small" onClick={onLogout}>로그아웃</button>
-        </div>
-      </div>
-      <nav className="tabs">{tabs.map(([k, l]) => <button key={k} className={tab === k ? "on" : ""} onClick={() => { setTab(k); window.scrollTo({ top: 0 }); load(true); }}>{l}</button>)}</nav>
+      <nav className="tabs bottom">{tabs.map(([k, ic, l]) => (
+        <button key={k} className={tab === k ? "on" : ""} onClick={() => { setTab(k); window.scrollTo({ top: 0 }); load(true); }}>
+          <span className="ic">{ic}</span>{l}{k === "req" && pending.length > 0 && <span className="dot">{pending.length}</span>}
+        </button>))}
+      </nav>
       {err && <div className="alerts"><div className="a-bad">{err}</div></div>}
       {loading && <div className="card"><p className="hint">불러오는 중…</p></div>}
 
@@ -143,7 +147,7 @@ function Owner({ session, onLogout }: { session: string; onLogout: () => void })
               <div><h2>{mLabel(m)}월 근무표</h2><p className="hint" style={{ margin: 0 }}>날짜를 누르면 고칠 수 있어요. 고친 내용은 자동 저장됩니다.</p></div>
               <div className="row">
                 <label className="mini row" style={{ gap: 4 }}><input type="checkbox" checked={allowStar} onChange={(e) => setAllowStar(e.target.checked)} /> ★ 오픈 허용</label>
-                <button className="btn pink" disabled={busy} onClick={runSolve}>{busy ? <><span className="spin" />편성 중…</> : roles ? "⚡ 다시 편성" : "⚡ 자동 편성"}</button>
+                <button className="btn moon" disabled={busy} onClick={runSolve}>{busy ? <><span className="spin" />편성 중…</> : roles ? "⚡ 다시 편성" : "⚡ 자동 편성"}</button>
                 {roles && (status === "published"
                   ? <button className="btn line small" onClick={() => publish("draft")}>공개 취소</button>
                   : <button className="btn small" onClick={() => publish("published")}>직원에게 공개</button>)}
@@ -173,7 +177,7 @@ function Owner({ session, onLogout }: { session: string; onLogout: () => void })
             )}
           </div>
           <div className="card" style={{ padding: 12 }}>
-            {ev ? <Calendar days={ev.days} m={m} title={`카페 A ${ymOf(m).replace("-", "년 ")}월 스케줄표`} onPick={setEditDay}
+            {ev ? <Calendar days={ev.days} m={m} title={`월영당 ${ymOf(m).replace("-", "년 ")}월 스케줄표`} onPick={setEditDay}
               flags={new Set(ev.issues.map(([, msg]) => { const x = msg.match(new RegExp(`^${mLabel(m)}/(\\d+)`)) || msg.match(new RegExp(`${mLabel(m)}/(\\d+)까지`)); return x ? +x[1] : 0; }).filter(Boolean))} />
               : <p className="hint">아직 {mLabel(m)}월 근무표가 없어요. <b>⚡ 자동 편성</b>을 누르세요.</p>}
           </div>
@@ -202,6 +206,7 @@ function Owner({ session, onLogout }: { session: string; onLogout: () => void })
       )}
       <div className={`toast ${toast ? "on" : ""}`}>{toast}</div>
     </div>
+    </>
   );
 }
 
@@ -210,7 +215,7 @@ function Kpi({ l, v, color }: { l: string; v: ReactNode; color?: string }) {
 }
 
 async function copyText(m: number, days: Day[], flash: (t: string) => void) {
-  const txt = `카페 A ${mLabel(m)}월 스케줄\n` + days.map((day) => `${day.d}(${WEEKDAY_KO[dow(m, day.d)]}) 음료 ${day.star ? "★ " : ""}${day.drink.map((s) => (s.who ? `${s.who} ${s.t}` : "빈자리")).join(", ")}${day.dessert ? " / 디저트 E" : ""}${day.f ? " / F 1430-마감" : ""} / 휴무 ${day.off.join("") || "-"}${day.lv.length ? " 연차 " + day.lv.join("") : ""}`).join("\n");
+  const txt = `월영당 ${mLabel(m)}월 스케줄\n` + days.map((day) => `${day.d}(${WEEKDAY_KO[dow(m, day.d)]}) 음료 ${day.star ? "★ " : ""}${day.drink.map((s) => (s.who ? `${s.who} ${s.t}` : "빈자리")).join(", ")}${day.dessert ? " / 디저트 E" : ""}${day.f ? " / F 1430-마감" : ""} / 휴무 ${day.off.join("") || "-"}${day.lv.length ? " 연차 " + day.lv.join("") : ""}`).join("\n");
   try { await navigator.clipboard.writeText(txt); flash("단톡방에 붙여넣을 수 있게 복사했어요"); } catch { flash("복사가 막혀 있어요"); }
 }
 
@@ -368,7 +373,7 @@ function NovCheck() {
         </div>
         <div className="alerts">{findings.map((msg, i) => <div key={i} className="a-warn" dangerouslySetInnerHTML={{ __html: `⚠️ ${msg}` }} />)}</div>
       </div>
-      <div className="card" style={{ padding: 12 }}><Calendar days={NOV_2026} m={11} title="카페 A 2026년 11월 스케줄표 (실제)" flags={new Set([22, 23])} /></div>
+      <div className="card" style={{ padding: 12 }}><Calendar days={NOV_2026} m={11} title="월영당 2026년 11월 스케줄표 (실제)" flags={new Set([22, 23])} /></div>
       <div className="card"><h2>11월 주별 근로시간</h2><PayTables weeks={pay} title="11/2 ~ 11/30" partialNote="11/30만" /></div>
     </>
   );

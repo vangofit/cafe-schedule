@@ -1,5 +1,5 @@
 "use client";
-// 카페 A 스케줄표와 같은 표기로 한 달을 그린다 (820px 이하는 날짜별 카드 목록)
+// 월영당 스케줄표와 같은 표기로 한 달을 그린다 (820px 이하는 날짜별 카드 목록)
 import { dow, fmtH, hkey, work, type Day } from "@/lib/engine";
 import { HOLIDAYS, WEEKDAY_KO } from "@/lib/rules";
 

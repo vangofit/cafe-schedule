@@ -1,5 +1,5 @@
 "use client";
-// 카페 A 수당표 형식: 주별 빨간 박스 + 합산(남색) + 포괄임금 제외 최종 지급분(분홍)
+// 월영당 수당표 형식: 주별 빨간 박스 + 합산(남색) + 포괄임금 제외 최종 지급분(분홍)
 import { fmtH, mLabel, type PayWeek } from "@/lib/engine";
 import { ALL } from "@/lib/rules";
 

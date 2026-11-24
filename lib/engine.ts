@@ -25,7 +25,7 @@ export const dow = (m: number, d: number) => new Date(YEAR, m - 1, d).getDay();
 export const daysIn = (m: number) => new Date(YEAR, m, 0).getDate();
 const toH = (s: string) => +s.slice(0, 2) + +s.slice(2) / 60;
 export function span(t: string) { const [a, b] = t.split("-"); return toH(b === "마감" ? F_END : b) - toH(a); }
-/** 휴게: 출근~퇴근 8.5h 이상 1시간, 그 외 30분 (카페 A 표기와 일치) */
+/** 휴게: 출근~퇴근 8.5h 이상 1시간, 그 외 30분 (월영당 표기와 일치) */
 export function work(t: string) { const s = span(t); return s - (s >= 8.5 ? 1 : s > 4 ? 0.5 : 0); }
 export const fmtH = (h: number) => (Math.round(h * 10) / 10).toString();
 
