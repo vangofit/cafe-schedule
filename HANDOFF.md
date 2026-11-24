@@ -89,3 +89,8 @@ npm run test:engine  # 엔진 점검
 ## (9) Supabase 일시정지 방지 (2026-11-24)
 - 무료 플랜은 7일 무활동 시 일시정지 → `ping()` RPC(0004_keepalive.sql, 적용 완료) + `app/api/keepalive/route.ts` + vercel.json cron(매일 18:17 UTC = 03:17 KST).
 - 확인: https://cafe-schedule-azure.vercel.app/api/keepalive → {"status":200,...}. 유료 플랜 전환 시 제거해도 됨.
+
+## (10) 주간 자동 백업 (2026-11-24)
+- `backup_export()` RPC(0005_backup.sql, 적용 완료): 전체 데이터를 OpenPGP AES-256로 암호화해 반환. 암호는 `backup_secret` 테이블에만 있음(저장소에 없음, 형민 보관).
+- `.github/workflows/backup.yml`: 매주 월 03:40 KST, `backups` 브랜치에 `backups/YYYY-MM-DD.json.asc` 저장, 26주 보관. vercel.json에서 backups 브랜치 배포 끔.
+- 복원: `scripts/restore-backup.md`.

@@ -1,0 +1,29 @@
+# 주간 자동 백업 — 매주 월요일 03:40 KST. Actions 탭에서 'Run workflow'로 바로 실행도 가능.
+# Supabase backup_export()가 돌려주는 '암호화된' 전체 데이터를 backups 브랜치에 날짜별 파일로 쌓는다.
+# 복원: scripts/restore-backup.md 참고 (암호는 형민이 따로 보관, 저장소에는 없음)
+name: weekly-backup
+on:
+  schedule:
+    - cron: "40 18 * * 0"
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: export
+        run: |
+          curl -sf -X POST "https://omwnawpubidjcmfhoyps.supabase.co/rest/v1/rpc/backup_export" \
+            -H "apikey: sb_publishable_evV8QxyOS4XxJ1NkTtqhSA_AKj8CuGf" -H "content-type: application/json" -d '{}' \
+            | python3 -c "import sys,json; open('/tmp/backup.asc','w').write(json.load(sys.stdin))"
+          grep -q "BEGIN PGP MESSAGE" /tmp/backup.asc
+      - name: commit to backups branch
+        run: |
+          git config user.name "backup-bot"; git config user.email "backup-bot@users.noreply.github.com"
+          if git ls-remote --exit-code origin backups >/dev/null; then git checkout backups; else git checkout --orphan backups; git rm -rqf .; fi
+          mkdir -p backups; D=$(TZ=Asia/Seoul date +%F); cp /tmp/backup.asc "backups/$D.json.asc"
+          ls backups/*.asc | sort | head -n -26 | xargs -r git rm -q   # 최근 26주(약 6개월)만 보관
+          git add backups; git commit -qm "backup $D" || echo "no change"; git push -q origin backups
