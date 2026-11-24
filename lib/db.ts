@@ -6,11 +6,13 @@ export const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://omw
 export const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_KEY || "sb_publishable_evV8QxyOS4XxJ1NkTtqhSA_AKj8CuGf";
 
 export async function rpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
-  const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+  const call = () => fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
     method: "POST",
     headers: { "content-type": "application/json", apikey: SUPABASE_KEY },
     body: JSON.stringify(args),
   });
+  let r: Response;
+  try { r = await call(); } catch { await new Promise((ok) => setTimeout(ok, 800)); r = await call(); } // 폰이 잠깐 끊겼을 때 한 번 더
   if (!r.ok) {
     const t = await r.text();
     const err = new Error(/unauthorized/.test(t) ? "unauthorized" : /deadline passed/.test(t) ? "deadline" : t.slice(0, 200));

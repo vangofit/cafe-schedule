@@ -31,7 +31,8 @@ export function MonthSettings({ m, session, deadline, busy, today, staff, reques
           <h2>요청 마감</h2>
           <p className="hint">마감일이 지나면 직원 링크에서 휴무·연차 요청이 잠겨요.</p>
           <div className="row">
-            <input type="date" value={deadline ?? ""} max={first} onChange={(e) => save(e.target.value || null, busy)} disabled={busyBusy} />
+            <label className="row" style={{ gap: 6 }}><span className="mini">마감일</span><input type="date" value={deadline ?? ""} max={first} onChange={(e) => save(e.target.value || null, busy)} disabled={busyBusy} style={{ minWidth: 160, minHeight: 40, background: "#fff" }} /></label>
+            {!deadline && <span className="mini">눌러서 날짜를 고르세요</span>}
             {dd != null && <span className="chip" style={{ background: dd < 0 ? "var(--hongSoft)" : "var(--moonSoft)", color: dd < 0 ? "var(--hong)" : "var(--night)", fontSize: 13 }}>{dd < 0 ? "마감됨" : dd === 0 ? "오늘 마감" : `D-${dd}`}</span>}
           </div>
           <p className="mini" style={{ marginTop: 8 }}>요청이 아직 없는 직원: <b>{noReq.length ? noReq.join(", ") : "없음"}</b> <span className="mini">(필요 없으면 괜찮아요)</span></p>

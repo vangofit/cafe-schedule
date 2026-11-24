@@ -85,10 +85,9 @@ function Owner({ session, onLogout }: { session: string; onLogout: () => void })
 
   const fail = useCallback((e: unknown) => { if (e instanceof Error && e.message === "unauthorized") onLogout(); else setErr("저장·불러오기에 실패했어요. 인터넷 연결을 확인해 주세요."); }, [onLogout]);
 
-  const load = useCallback(async (keepRoles = false) => {
-    setErr("");
+  const load = useCallback(async (keepRoles = false, silent = false) => {
     try {
-      const st = await db.state(session, ymOf(m));
+      const st = await db.state(session, ymOf(m)); setErr("");
       setStaff(st.staff); setRequests(st.requests); setSwaps(st.swaps || []); setToday(st.today || today);
       setDeadline(st.month?.deadline ?? null); setBusyDays(st.month?.busy_days ?? []);
       if (!keepRoles) {
@@ -104,12 +103,12 @@ function Owner({ session, onLogout }: { session: string; onLogout: () => void })
           setPrevDays(Array.from({ length: 7 }, (_, i) => toDay(pctx, n - 6 + i, pv.schedule!.roles[n - 7 + i]))); setPrevNote("");
         } else { setPrevDays([]); setPrevNote(`${mLabel(m - 1)}월 근무표가 저장되어 있지 않아, 첫 주 52시간·연속근무 검사가 ${mLabel(m)}월 날짜만으로 계산돼요.`); }
       }
-    } catch (e) { fail(e); }
+    } catch (e) { if (!silent || (e instanceof Error && e.message === "unauthorized")) fail(e); }
     setLoading(false);
   }, [session, m, fail]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setLoading(true); setRoles(null); load(); }, [load]);
   // 직원 요청을 놓치지 않게 30초마다 요청 목록만 새로 불러옴
-  useEffect(() => { const t = setInterval(() => load(true), 30000); return () => clearInterval(t); }, [load]);
+  useEffect(() => { const t = setInterval(() => load(true, true), 30000); return () => clearInterval(t); }, [load]);
 
   const approved: Req[] = useMemo(() => requests.filter((r) => r.status === "approved").map((r) => ({ who: r.who, day: r.day, type: r.type })), [requests]);
   const ctx: MonthCtx = useMemo(() => ({ m, reqs: approved, prevDays, busy: busyDays }), [m, approved, prevDays, busyDays]);
@@ -159,7 +158,7 @@ function Owner({ session, onLogout }: { session: string; onLogout: () => void })
           <span className="ic">{ic}</span>{l}{k === "req" && pending.length + pendingSwaps > 0 && <span className="dot">{pending.length + pendingSwaps}</span>}
         </button>))}
       </nav>
-      {err && <div className="alerts"><div className="a-bad">{err}</div></div>}
+      {err && <div className="alerts"><div className="a-bad">{err} <a href="#" onClick={(e) => { e.preventDefault(); load(true); }}>다시 시도</a></div></div>}
       {loading && <div className="card"><p className="hint">불러오는 중…</p></div>}
 
       {!loading && tab === "sched" && (

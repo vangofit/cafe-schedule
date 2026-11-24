@@ -54,6 +54,11 @@
 - 비교 `scripts/compare.ts` (node --experimental-strip-types): 같은 조건에서 OR-Tools가 점수 더 낮음(=더 좋음), 연속근무 경고 0, 빡빡한 달 빈자리는 규칙상 불가능한 자리만 남음
 - `vercel.json`: api/solve.py maxDuration 30초. `requirements.txt`: ortools
 
+### 2026-11-24 (7) — 실사용 확인 후 수정
+- 형민이 iPad Chrome에서 OR-Tools 편성 성공 확인 (편성 엔진: OR-Tools, 8.5초, 위반 0건)
+- 백그라운드 30초 새로고침 실패는 경고를 띄우지 않음 (폰·태블릿이 잠깐 끊겨도 빨간 경고 X), RPC 네트워크 오류 1회 재시도, 경고에 "다시 시도" 링크
+- 마감일 입력칸이 비어 있을 때도 보이도록 라벨·크기
+
 ## 실행
 ```
 npm install
