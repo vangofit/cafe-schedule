@@ -1,6 +1,6 @@
 "use client";
 // 카페 A 수당표 형식: 주별 빨간 박스 + 합산(남색) + 포괄임금 제외 최종 지급분(분홍)
-import { fmtH, type PayWeek } from "@/lib/engine";
+import { fmtH, mLabel, type PayWeek } from "@/lib/engine";
 import { ALL } from "@/lib/rules";
 
 export default function PayTables({ weeks, title, partialNote }: { weeks: PayWeek[]; title: string; partialNote: string }) {
@@ -16,7 +16,7 @@ export default function PayTables({ weeks, title, partialNote }: { weeks: PayWee
           const a = w[0], b = w[w.length - 1];
           return (
             <div className="wk" key={`${a[0]}-${a[1]}`}>
-              <h3>{a[0]}월 {a[1]}일 ~ {b[0]}월 {b[1]}일 {w.length < 7 && <span className="mini">({partialNote})</span>}</h3>
+              <h3>{mLabel(a[0])}월 {a[1]}일 ~ {mLabel(b[0])}월 {b[1]}일 {w.length < 7 && <span className="mini">({partialNote})</span>}</h3>
               <table>
                 <thead><tr><th>직원</th><th>근로</th><th>일8h초과</th><th>주40h초과</th><th>휴일근로</th><th>52h</th></tr></thead>
                 <tbody>

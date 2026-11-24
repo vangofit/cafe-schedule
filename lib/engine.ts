@@ -16,7 +16,11 @@ export interface Day {
 export type Issue = ["bad" | "warn", string];
 
 // ───── 날짜·시간 ─────
-export const hkey = (m: number, d: number) => `${YEAR}-${m}-${d}`;
+/** m은 2026년 기준 월 번호 (13 = 2027년 1월). 실제 날짜 키 "YYYY-M-D" */
+export const hkey = (m: number, d: number) => { const t = new Date(YEAR, m - 1, d); return `${t.getFullYear()}-${t.getMonth() + 1}-${t.getDate()}`; };
+/** 화면 표시용 월 (13 → 1) */
+export const mLabel = (m: number) => ((m - 1) % 12) + 1;
+export const ymOf = (m: number) => { const t = new Date(YEAR, m - 1, 1); return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}`; };
 export const dow = (m: number, d: number) => new Date(YEAR, m - 1, d).getDay();
 export const daysIn = (m: number) => new Date(YEAR, m, 0).getDate();
 const toH = (s: string) => +s.slice(0, 2) + +s.slice(2) / 60;
@@ -32,7 +36,7 @@ export function dayType(m: number, d: number): DayType {
   if (HOLIDAYS[hkey(m, d)]) {
     const nd = new Date(YEAR, m - 1, d + 1);
     const nw = nd.getDay();
-    const nh = !!HOLIDAYS[hkey(nd.getMonth() + 1, nd.getDate())];
+    const nh = !!HOLIDAYS[`${nd.getFullYear()}-${nd.getMonth() + 1}-${nd.getDate()}`];
     return nw === 0 || nw === 6 || nh ? "sat" : "sun"; // 공휴일 = 주말형
   }
   return "wd";
@@ -67,7 +71,7 @@ export function toDay(ctx: MonthCtx, d: number, roles: Roles): Day {
       if (w === "★") { star = true; return; }
       if (w === "E") { drink.push({ who: "E", t: SHIFT.E }); return; }
     }
-    drink.push({ who: w, t: times[i] });
+    if (times[i]) drink.push({ who: w, t: times[i] }); // 저장된 자리 수가 그날 형식과 다르면 무시
   });
   const working = new Set(drink.map((s) => s.who).filter(Boolean) as string[]);
   const lv = ctx.reqs.filter((r) => r.day === d && r.type === "lv").map((r) => r.who);
@@ -131,14 +135,14 @@ export function evaluate(ctx: MonthCtx, R: Roles[], allowStar: boolean, detail =
     [...DRINK, "E"].forEach((p) => {
       let tot = 0, n = 0;
       w.forEach(([m, d]) => { const v = H[p][`${m}-${d}`]; if (v) { tot += v; n++; } });
-      if (tot > LIMITS.weeklyMax) { sc += WEIGHTS.overWeeklyPerHour * (tot - LIMITS.weeklyMax); push("bad", `${p}: ${w[0][0]}/${w[0][1]}~ 주 <b>${fmtH(tot)}시간</b> (52시간 초과)`); }
-      if (w.length === 7 && n === 7) { sc += WEIGHTS.noDayOffInWeek; push("bad", `${p}: ${w[0][0]}/${w[0][1]}~ 주에 쉬는 날이 없음`); }
+      if (tot > LIMITS.weeklyMax) { sc += WEIGHTS.overWeeklyPerHour * (tot - LIMITS.weeklyMax); push("bad", `${p}: ${mLabel(w[0][0])}/${w[0][1]}~ 주 <b>${fmtH(tot)}시간</b> (52시간 초과)`); }
+      if (w.length === 7 && n === 7) { sc += WEIGHTS.noDayOffInWeek; push("bad", `${p}: ${mLabel(w[0][0])}/${w[0][1]}~ 주에 쉬는 날이 없음`); }
     });
   });
   [...DRINK, "E"].forEach((p) => {
     let run = 0;
     tl.forEach((day) => {
-      if (H[p][`${day.m}-${day.d}`]) { run++; if (run > 6) { sc += WEIGHTS.streakOver6; if (day.m === ctx.m) push("warn", `${p}: ${day.m}/${day.d}까지 ${run}일 연속 근무`); } }
+      if (H[p][`${day.m}-${day.d}`]) { run++; if (run > 6) { sc += WEIGHTS.streakOver6; if (day.m === ctx.m) push("warn", `${p}: ${mLabel(day.m)}/${day.d}까지 ${run}일 연속 근무`); } }
       else run = 0;
     });
   });
@@ -148,7 +152,7 @@ export function evaluate(ctx: MonthCtx, R: Roles[], allowStar: boolean, detail =
   days.forEach((day, i) => {
     const r = R[i];
     if (day.type === "wd") {
-      if (!r[1] || !r[2]) { sc += WEIGHTS.emptySlot; push("bad", `${ctx.m}/${day.d} 미들·마감 자리 비어 있음`); }
+      if (!r[1] || !r[2]) { sc += WEIGHTS.emptySlot; push("bad", `${mLabel(ctx.m)}/${day.d} 미들·마감 자리 비어 있음`); }
       if (r[0] === "E") { sc += WEIGHTS.eOpenSupport; eSup++; }
       else if (r[0] === "★") { sc += allowStar ? WEIGHTS.starOpen : WEIGHTS.starForbidden; stars++; }
       else if (!r[0]) sc += WEIGHTS.emptySlot;
@@ -157,7 +161,7 @@ export function evaluate(ctx: MonthCtx, R: Roles[], allowStar: boolean, detail =
       if (r[2]) cnt[r[2]].c++;
     } else {
       r.forEach((w, j) => {
-        if (!w) { sc += WEIGHTS.emptySlot; push("bad", `${ctx.m}/${day.d} ${day.type === "sat" ? "토요일형" : "일요일형"} ${j + 1}번째 자리 비어 있음`); }
+        if (!w) { sc += WEIGHTS.emptySlot; push("bad", `${mLabel(ctx.m)}/${day.d} ${day.type === "sat" ? "토요일형" : "일요일형"} ${j + 1}번째 자리 비어 있음`); }
         else if (w === "E") { sc += WEIGHTS.eWeekend; eWeekend++; }
         else if (j === 0) cnt[w].w0++;
       });
@@ -243,7 +247,7 @@ export function missingMarks(days: Day[]): Issue[] {
   days.forEach((day) => {
     const seen = new Set<string>([...day.drink.map((s) => s.who || ""), ...day.off, ...day.lv]);
     if (day.dessert) seen.add("E");
-    DRINK.forEach((p) => { if (!seen.has(p)) out.push(["warn", `${day.m}/${day.d} <b>${p}</b>: 근무도 휴무도 표시되지 않음`]); });
+    DRINK.forEach((p) => { if (!seen.has(p)) out.push(["warn", `${mLabel(day.m)}/${day.d} <b>${p}</b>: 근무도 휴무도 표시되지 않음`]); });
   });
   return out;
 }
