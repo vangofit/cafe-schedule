@@ -179,3 +179,9 @@ textarea{width:100%;border:1px solid var(--line);border-radius:12px;padding:12px
 .night .loginCard{position:relative;z-index:2;width:100%;max-width:380px;background:rgba(255,253,248,.97);color:var(--ink);border-radius:18px;padding:26px 24px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
 .night .loginCard h1{font-family:var(--serif);font-size:30px;margin:4px 0 0;letter-spacing:1px}
 .night .loginCard .han{font-family:var(--serif);color:var(--moonDeep);letter-spacing:6px;font-size:13px}
+
+/* 이미지 저장용: 화면 밖에서 데스크톱 스케줄표 형식으로 그림 */
+.exportMode{width:1400px;background:#fff;padding:24px;font-family:var(--sans)}
+.exportMode .cal{display:grid!important}
+.exportMode .list{display:none!important}
+.exportMode .cal .c{min-height:140px}

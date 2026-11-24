@@ -9,7 +9,7 @@ export type Roles = Role[]; // 평일 [오픈, 미들, 마감] / 주말 [s0..s3]
 export interface Req { who: string; day: number; type: "lv" | "off" } // lv: 연차, off: 휴무 희망
 export interface Slot { who: string | null; t: string }
 export interface Day {
-  m: number; d: number; type: DayType; hol: string | null;
+  m: number; d: number; type: DayType; hol: string | null; busy?: boolean;
   drink: Slot[]; star: boolean; dessert: string | null; f: string | null;
   off: string[]; lv: string[];
 }
@@ -29,11 +29,12 @@ export function span(t: string) { const [a, b] = t.split("-"); return toH(b === 
 export function work(t: string) { const s = span(t); return s - (s >= 8.5 ? 1 : s > 4 ? 0.5 : 0); }
 export const fmtH = (h: number) => (Math.round(h * 10) / 10).toString();
 
-export function dayType(m: number, d: number): DayType {
+/** busy: 대표님이 '바쁜 날'로 지정한 평일 → 공휴일처럼 주말형(음료 4명)으로 편성 */
+export function dayType(m: number, d: number, busy?: number[]): DayType {
   const w = dow(m, d);
   if (w === 6) return "sat";
   if (w === 0) return "sun";
-  if (HOLIDAYS[hkey(m, d)]) {
+  if (HOLIDAYS[hkey(m, d)] || busy?.includes(d)) {
     const nd = new Date(YEAR, m - 1, d + 1);
     const nw = nd.getDay();
     const nh = !!HOLIDAYS[`${nd.getFullYear()}-${nd.getMonth() + 1}-${nd.getDate()}`];
@@ -52,7 +53,7 @@ export function dayHours(day: Day): Record<string, number> {
 }
 
 // ───── 월 편성 컨텍스트 ─────
-export interface MonthCtx { m: number; reqs: Req[]; prevDays: Day[] } // prevDays: 직전 달 마지막 주(연속근무·첫 주 계산용)
+export interface MonthCtx { m: number; reqs: Req[]; prevDays: Day[]; busy?: number[] } // prevDays: 직전 달 마지막 주(연속근무·첫 주 계산용)
 
 export function avail(ctx: MonthCtx, d: number) {
   const no = new Set(ctx.reqs.filter((r) => r.day === d).map((r) => r.who));
@@ -64,7 +65,7 @@ export function slotTimes(m: number, d: number, type: DayType) {
 }
 export function toDay(ctx: MonthCtx, d: number, roles: Roles): Day {
   const { m } = ctx;
-  const type = dayType(m, d), av = avail(ctx, d), times = slotTimes(m, d, type);
+  const type = dayType(m, d, ctx.busy), av = avail(ctx, d), times = slotTimes(m, d, type);
   const drink: Slot[] = []; let star = false;
   roles.forEach((w, i) => {
     if (type === "wd" && i === 0) {
@@ -83,14 +84,14 @@ export function toDay(ctx: MonthCtx, d: number, roles: Roles): Day {
   if (!eDessert && !working.has("E") && !lv.includes("E")) off.push("E");
   const fWorks = type !== "wd" && av.F;
   if (type !== "wd" && !fWorks && !lv.includes("F")) off.push("F");
-  return { m, d, type, hol: HOLIDAYS[hkey(m, d)] || null, drink, star, dessert: eDessert ? SHIFT.E : null, f: fWorks ? SHIFT.F : null, off, lv };
+  return { m, d, type, hol: HOLIDAYS[hkey(m, d)] || null, busy: !!ctx.busy?.includes(d) && !HOLIDAYS[hkey(m, d)], drink, star, dessert: eDessert ? SHIFT.E : null, f: fWorks ? SHIFT.F : null, off, lv };
 }
 
 function shuffle<T>(a: T[]) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 const isWeekendDate = (m: number, d: number) => dow(m, d) === 0 || dow(m, d) === 6;
 
 export function randomRoles(ctx: MonthCtx, d: number, allowStar: boolean): Roles {
-  const type = dayType(ctx.m, d), av = avail(ctx, d); const p = shuffle(av.drink);
+  const type = dayType(ctx.m, d, ctx.busy), av = avail(ctx, d); const p = shuffle(av.drink);
   if (type === "wd") {
     let open: Role;
     if (p[2] && Math.random() < 0.65) open = p[2];
@@ -151,6 +152,7 @@ export function evaluate(ctx: MonthCtx, R: Roles[], allowStar: boolean, detail =
   DRINK.forEach((p) => (cnt[p] = { o: 0, m: 0, c: 0, w0: 0, h: 0 }));
   days.forEach((day, i) => {
     const r = R[i];
+    if (r.length !== (day.type === "wd" ? 3 : 4)) { sc += WEIGHTS.emptySlot * 2; push("bad", `${mLabel(ctx.m)}/${day.d} 근무 형식(평일형/주말형)이 바뀌었어요 → 다시 편성 필요`); return; }
     if (day.type === "wd") {
       if (!r[1] || !r[2]) { sc += WEIGHTS.emptySlot; push("bad", `${mLabel(ctx.m)}/${day.d} 미들·마감 자리 비어 있음`); }
       if (r[0] === "E") { sc += WEIGHTS.eOpenSupport; eSup++; }
@@ -197,7 +199,7 @@ export function solve(ctx: MonthCtx, allowStar: boolean, prev: Roles[] | null, i
     for (let it = 0; it < iters; it++) {
       temp = Math.max(0.2, temp * 0.9994);
       const i = Math.floor(Math.random() * N), d = i + 1, old = R[i];
-      let nr = old.slice(); const mv = Math.random(); const wd = dayType(ctx.m, d) === "wd";
+      let nr = old.slice(); const mv = Math.random(); const wd = dayType(ctx.m, d, ctx.busy) === "wd";
       if (mv < 0.25) nr = randomRoles(ctx, d, allowStar);
       else if (mv < 0.6) {
         const a = Math.floor(Math.random() * nr.length), b = Math.floor(Math.random() * nr.length);
@@ -261,5 +263,27 @@ export function ruleParse(text: string): Req[] {
     const type = /연차/.test(seg) ? "lv" : "off";
     nums.forEach((day) => { if (day >= 1 && day <= 31) out.push({ who, day, type }); });
   });
+  return out;
+}
+
+// ───── 대타·교환 ─────
+export interface Swap { id: number; from_code: string; from_day: number; to_code: string; to_day: number | null; note: string | null; status: string }
+/** 교환을 근무표에 적용. 불가능하면 이유 문자열 */
+export function applySwap(R: Roles[], sw: Swap): Roles[] | string {
+  const out = R.map((r) => r.slice());
+  const a = out[sw.from_day - 1];
+  if (!a) return "날짜가 근무표에 없어요";
+  const i = a.indexOf(sw.from_code);
+  if (i < 0) return `${sw.from_day}일에 ${sw.from_code} 근무가 없어요`;
+  if (a.includes(sw.to_code)) return `${sw.from_day}일에 ${sw.to_code}도 이미 근무예요`;
+  a[i] = sw.to_code;
+  if (sw.to_day) {
+    const b = out[sw.to_day - 1];
+    if (!b) return "날짜가 근무표에 없어요";
+    const j = b.indexOf(sw.to_code);
+    if (j < 0) return `${sw.to_day}일에 ${sw.to_code} 근무가 없어요`;
+    if (b.includes(sw.from_code)) return `${sw.to_day}일에 ${sw.from_code}도 이미 근무예요`;
+    b[j] = sw.from_code;
+  }
   return out;
 }

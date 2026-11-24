@@ -58,3 +58,14 @@ export const WEIGHTS = {
   fairShiftCount: 4,
   closeThenOpen: 4,
 };
+
+// 바쁜 날 추천 (평일인데 손님이 몰릴 만한 날). 매출 데이터가 쌓이면 데이터 기반으로 바꾼다.
+export const BUSY_SUGGEST: Record<string, string> = {
+  "2026-12-24": "크리스마스 이브",
+  "2026-12-31": "연말 마지막 날",
+  "2027-2-5": "설 연휴 전날",
+  "2027-2-10": "설 연휴 다음 날",
+};
+
+// 가산 배율 (5인 이상 사업장)
+export const PAY_RATE = { overtime: 1.5, holidayWithin8: 1.5, holidayOver8: 2.0 };

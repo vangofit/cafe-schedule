@@ -57,7 +57,7 @@ export default function Calendar({ days, m, title, onPick, flags }: Props) {
           <div key={day.d} className={`c ${onPick ? "edit" : ""}`} onClick={() => onPick?.(day.d)}>
             {flags?.has(day.d) && <span className="flag">!</span>}
             <div className={`dn ${isRed(day.d) ? "red" : ""}`}>
-              {day.d}{day.hol && <small>{day.hol}</small>}
+              {day.d}{day.hol ? <small>{day.hol}</small> : day.busy ? <small style={{ color: "var(--moonDeep)" }}>바쁜 날</small> : null}
             </div>
             <DayInner day={day} />
           </div>
@@ -71,7 +71,7 @@ export default function Calendar({ days, m, title, onPick, flags }: Props) {
             <div className="hd">
               <span className="d" style={isRed(day.d) ? { color: "#f0505a" } : undefined}>{day.d}</span>
               <span className="w">
-                {WEEKDAY_KO[dow(m, day.d)]}{day.hol ? ` · ${day.hol}` : ""}
+                {WEEKDAY_KO[dow(m, day.d)]}{day.hol ? ` · ${day.hol}` : day.busy ? " · 바쁜 날" : ""}
                 {day.type !== "wd" && dow(m, day.d) > 0 && dow(m, day.d) < 6 ? " (주말형)" : ""}
               </span>
             </div>

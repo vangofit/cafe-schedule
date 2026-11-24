@@ -24,3 +24,18 @@ expect("A 12/31 근무 없음", !ev.days[30].drink.some((s) => s.who === "A"));
 const pay = payroll([NOV_2026[29], ...ev.days], weeksOf(12));
 expect("주 52시간 초과 없음", pay.every((w) => Object.values(w.rows).every((r) => r.tot <= 52)));
 console.log("음료 직원 월 근로시간:", ev.hours, "E 지원", ev.eSup, "★", ev.stars);
+
+// 바쁜 날: 12/24(목)를 주말형으로
+import { applySwap, dayType } from "../lib/engine.ts";
+const busyCtx: MonthCtx = { ...ctx, reqs: [], busy: [24] };
+expect("바쁜 날 12/24 → 주말형", dayType(12, 24, [24]) !== "wd");
+const RB = solve(busyCtx, true, null, 4000);
+const evB = evaluate(busyCtx, RB, true);
+expect("바쁜 날 음료 4자리", RB[23].length === 4 && evB.days[23].drink.length === 4);
+expect("바쁜 날에도 E 디저트", evB.days[23].dessert !== null);
+expect("바쁜 날 편성 위반 0건", evB.issues.filter((x) => x[0] === "bad").length === 0);
+// 교환
+const d2 = RB[1]; const who = d2.find((x) => x && "ABCD".includes(x))!; const other = "ABCD".split("").find((x) => !d2.includes(x))!;
+const sw = applySwap(RB, { id: 1, from_code: who, from_day: 2, to_code: other, to_day: null, note: null, status: "pending" });
+expect("대타 적용", typeof sw !== "string" && sw[1].includes(other) && !sw[1].includes(who));
+expect("없는 근무 교환은 거절", typeof applySwap(RB, { id: 2, from_code: other, from_day: 2, to_code: who, to_day: null, note: null, status: "pending" }) === "string");

@@ -37,6 +37,15 @@
 - 홈 화면 추가용 `app/manifest.ts`, `app/icon.svg`
 - 테스트: 흉내 DB로 전체 흐름 재통과, 데스크톱·모바일·로그인·직원 화면 스크린샷 확인
 
+### 2026-11-24 (5) — 개선 5종
+1. 근무표 이미지 저장: `lib/exporters.ts` `exportImage` — 화면 밖 `.exportMode`(1400px 데스크톱 형식)에 그린 뒤 html-to-image로 PNG. 폰은 공유 시트, PC는 다운로드
+2. 요청 마감: `month_settings.deadline`, 대표님 화면 D-day·미요청 직원 표시, 직원 화면 잠금 + DB `staff_request`가 마감 후 거절(한국 날짜 기준 `_today_kst()`)
+3. 대타·교환: `swaps` 테이블, 직원 `staff_swap_request`(공개된 근무표만, 음료 직원), 대표님 `SwapsPanel`에서 `applySwap`으로 미리 검사 → 승인 시 근무표에 적용·저장
+4. 바쁜 날: `month_settings.busy_days` → 엔진 `dayType(m,d,busy)`가 주말형(음료 4명)으로 편성. 추천 목록은 `lib/rules.ts` `BUSY_SUGGEST`. 형식이 바뀐 날은 "다시 편성 필요" 위반으로 표시
+5. 급여 정산: `staff.wage`, `staff.comp_ot`(포괄 포함 월 연장시간) → `lib/pay.ts` `finalPay`, 엑셀 3시트(근무표·주별 근로·월 합계/지급분) `exportExcel`(exceljs)
+- 마이그레이션 `0003_features.sql` 적용됨 (owner_state/staff_info 응답에 month·swaps·today 추가)
+- 테스트: 엔진 점검에 바쁜 날·교환 추가, 흉내 DB 브라우저 테스트로 5개 기능 전부 통과 (PNG·xlsx 실제 파일 열어 확인)
+
 ## 실행
 ```
 npm install

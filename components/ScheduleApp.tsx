@@ -11,6 +11,10 @@ import {
 import { NOV_2026, NOV_NOTES } from "@/lib/nov2026";
 import { ALL, DRINK, HOLIDAYS, SHIFT, WEEKDAY_KO } from "@/lib/rules";
 import { db, store, type DbRequest, type DbStaff } from "@/lib/db";
+import { MonthSettings, SwapsPanel, PayPanel } from "./OwnerPanels";
+import { finalPay } from "@/lib/pay";
+import { exportExcel, exportImage } from "@/lib/exporters";
+import type { Swap } from "@/lib/engine";
 
 const MONTHS = [12, 13]; // 편성 가능한 달 (12 = 2026년 12월, 13 = 2027년 1월)
 type Tab = "sched" | "req" | "pay" | "links" | "rules" | "nov";
@@ -68,6 +72,12 @@ function Owner({ session, onLogout }: { session: string; onLogout: () => void })
   const [editDay, setEditDay] = useState<number | null>(null);
   const [toast, setToast] = useState("");
   const [err, setErr] = useState("");
+  const [deadline, setDeadline] = useState<string | null>(null);
+  const [busyDays, setBusyDays] = useState<number[]>([]);
+  const [swaps, setSwaps] = useState<Swap[]>([]);
+  const [today, setToday] = useState(new Date().toISOString().slice(0, 10));
+  const [exporting, setExporting] = useState(false);
+  const exportRef = useRef<HTMLDivElement>(null);
   const ym = ymOf(m);
   const flash = (t: string) => { setToast(t); setTimeout(() => setToast(""), 2000); };
 
@@ -77,7 +87,8 @@ function Owner({ session, onLogout }: { session: string; onLogout: () => void })
     setErr("");
     try {
       const st = await db.state(session, ymOf(m));
-      setStaff(st.staff); setRequests(st.requests);
+      setStaff(st.staff); setRequests(st.requests); setSwaps(st.swaps || []); setToday(st.today || today);
+      setDeadline(st.month?.deadline ?? null); setBusyDays(st.month?.busy_days ?? []);
       if (!keepRoles) {
         setRoles(st.schedule?.roles ?? null); setAllowStar(st.schedule?.allow_star ?? true);
         setStatus(st.schedule?.status ?? "draft"); setSavedAt(st.schedule?.updated_at ?? null);
@@ -86,22 +97,24 @@ function Owner({ session, onLogout }: { session: string; onLogout: () => void })
       else {
         const pv = await db.state(session, ymOf(m - 1));
         if (pv.schedule) {
-          const pctx: MonthCtx = { m: m - 1, reqs: pv.requests.filter((r) => r.status === "approved").map((r) => ({ who: r.who, day: r.day, type: r.type })), prevDays: [] };
+          const pctx: MonthCtx = { m: m - 1, reqs: pv.requests.filter((r) => r.status === "approved").map((r) => ({ who: r.who, day: r.day, type: r.type })), prevDays: [], busy: pv.month?.busy_days ?? [] };
           const n = daysIn(m - 1);
           setPrevDays(Array.from({ length: 7 }, (_, i) => toDay(pctx, n - 6 + i, pv.schedule!.roles[n - 7 + i]))); setPrevNote("");
         } else { setPrevDays([]); setPrevNote(`${mLabel(m - 1)}월 근무표가 저장되어 있지 않아, 첫 주 52시간·연속근무 검사가 ${mLabel(m)}월 날짜만으로 계산돼요.`); }
       }
     } catch (e) { fail(e); }
     setLoading(false);
-  }, [session, m, fail]);
+  }, [session, m, fail]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setLoading(true); setRoles(null); load(); }, [load]);
   // 직원 요청을 놓치지 않게 30초마다 요청 목록만 새로 불러옴
   useEffect(() => { const t = setInterval(() => load(true), 30000); return () => clearInterval(t); }, [load]);
 
   const approved: Req[] = useMemo(() => requests.filter((r) => r.status === "approved").map((r) => ({ who: r.who, day: r.day, type: r.type })), [requests]);
-  const ctx: MonthCtx = useMemo(() => ({ m, reqs: approved, prevDays }), [m, approved, prevDays]);
+  const ctx: MonthCtx = useMemo(() => ({ m, reqs: approved, prevDays, busy: busyDays }), [m, approved, prevDays, busyDays]);
   const ev = useMemo(() => (roles ? evaluate(ctx, roles, allowStar) : null), [ctx, roles, allowStar]);
   const pending = requests.filter((r) => r.status === "pending");
+  const pendingSwaps = swaps.filter((s) => s.status === "pending").length;
+  const payWeeks = useMemo(() => (ev ? payroll([...prevDays, ...ev.days], weeksOf(m)) : null), [ev, prevDays, m]);
   const reqChangedSinceSave = useMemo(() => !!savedAt && requests.some((r) => r.status === "approved" && r.created_at > savedAt), [requests, savedAt]);
 
   // 저장 (날짜 수정은 0.9초 모아서 저장)
@@ -134,7 +147,7 @@ function Owner({ session, onLogout }: { session: string; onLogout: () => void })
     <div className="wrap">
       <nav className="tabs bottom">{tabs.map(([k, ic, l]) => (
         <button key={k} className={tab === k ? "on" : ""} onClick={() => { setTab(k); window.scrollTo({ top: 0 }); load(true); }}>
-          <span className="ic">{ic}</span>{l}{k === "req" && pending.length > 0 && <span className="dot">{pending.length}</span>}
+          <span className="ic">{ic}</span>{l}{k === "req" && pending.length + pendingSwaps > 0 && <span className="dot">{pending.length + pendingSwaps}</span>}
         </button>))}
       </nav>
       {err && <div className="alerts"><div className="a-bad">{err}</div></div>}
@@ -142,6 +155,8 @@ function Owner({ session, onLogout }: { session: string; onLogout: () => void })
 
       {!loading && tab === "sched" && (
         <>
+          <MonthSettings m={m} session={session} deadline={deadline} busy={busyDays} today={today} staff={staff} requests={requests}
+            onSaved={(dl, b) => { setDeadline(dl); setBusyDays(b); flash("저장했어요"); }} onFail={fail} />
           <div className="card">
             <div className="row" style={{ justifyContent: "space-between" }}>
               <div><h2>{mLabel(m)}월 근무표</h2><p className="hint" style={{ margin: 0 }}>날짜를 누르면 고칠 수 있어요. 고친 내용은 자동 저장됩니다.</p></div>
@@ -151,11 +166,12 @@ function Owner({ session, onLogout }: { session: string; onLogout: () => void })
                 {roles && (status === "published"
                   ? <button className="btn line small" onClick={() => publish("draft")}>공개 취소</button>
                   : <button className="btn small" onClick={() => publish("published")}>직원에게 공개</button>)}
+                {ev && <button className="btn line small" disabled={exporting} onClick={() => { setExporting(true); setTimeout(async () => { try { if (exportRef.current) await exportImage(exportRef.current, m); } catch { flash("이미지 저장에 실패했어요"); } setExporting(false); }, 150); }}>{exporting ? "이미지 만드는 중…" : "🖼 이미지 저장"}</button>}
                 {ev && <button className="btn line small" onClick={() => copyText(m, ev.days, flash)}>카톡용 복사</button>}
               </div>
             </div>
             <div className="alerts">
-              {pending.length > 0 && <div className="a-warn">직원 요청 {pending.length}건이 승인을 기다려요. <a href="#" onClick={(e) => { e.preventDefault(); setTab("req"); }}>요청 탭에서 확인</a></div>}
+              {pending.length + pendingSwaps > 0 && <div className="a-warn">직원 요청 {pending.length}건{pendingSwaps ? `, 교환 신청 ${pendingSwaps}건` : ""}이 승인을 기다려요. <a href="#" onClick={(e) => { e.preventDefault(); setTab("req"); }}>요청 탭에서 확인</a></div>}
               {reqChangedSinceSave && <div className="a-warn">근무표 저장 후 승인된 요청이 있어요. <b>⚡ 다시 편성</b>을 누르면 반영돼요.</div>}
               {prevNote && <div className="a-warn">{prevNote}</div>}
               {roles && <div className={status === "published" ? "a-ok" : "a-warn"}>{status === "published" ? "✓ 직원 링크에 공개된 근무표예요." : "아직 직원에게 공개하지 않은 초안이에요."}</div>}
@@ -184,15 +200,24 @@ function Owner({ session, onLogout }: { session: string; onLogout: () => void })
         </>
       )}
 
-      {!loading && tab === "req" && <Requests m={m} session={session} requests={requests} onChange={() => load(true)} onFail={fail} />}
+      {!loading && tab === "req" && <>
+        <SwapsPanel m={m} session={session} swaps={swaps} roles={roles} ctx={ctx} allowStar={allowStar}
+          onApply={async (R) => { setRoles(R); await save(R, status, allowStar); }} onChanged={() => load(true)} onFail={fail} />
+        <Requests m={m} session={session} requests={requests} onChange={() => load(true)} onFail={fail} />
+      </>}
 
       {!loading && tab === "pay" && (ev ? (
         <div className="card">
           <h2>{mLabel(m)}월 수당표 (자동 계산)</h2>
           <p className="hint">근무표에서 바로 계산합니다. 주 단위는 월~일, 첫 주는 전달 근무 포함.</p>
-          <PayTables weeks={payroll([...prevDays, ...ev.days], weeksOf(m))} title={`${mLabel(m)}월`} partialNote={`${mLabel(m)}월분만 · 다음 달과 합산 필요`} />
+          <PayTables weeks={payWeeks!} title={`${mLabel(m)}월`} partialNote={`${mLabel(m)}월분만 · 다음 달과 합산 필요`} />
           <div className="notice"><b>※ 자동 점검</b><br />- 공휴일 근무는 휴일근로로 분리 계산<br />- 야간근로(22시 이후)는 기존처럼 22:00~22:10 퇴근 시 미포함으로 가정</div>
         </div>
+      ) : null)}
+      {!loading && tab === "pay" && (ev ? (
+        <PayPanel key={m} session={session} staff={staff} final={finalPay(payWeeks!, staff.map((s) => ({ code: s.code, wage: s.wage, comp_ot: Number(s.comp_ot) || 0 })))}
+          onSaved={() => load(true)} onFail={fail}
+          onExcel={async () => { try { await exportExcel(m, ev.days, payWeeks!, finalPay(payWeeks!, staff.map((s) => ({ code: s.code, wage: s.wage, comp_ot: Number(s.comp_ot) || 0 })))); } catch { flash("엑셀 만들기에 실패했어요"); } }} />
       ) : <div className="card"><p className="hint">근무표를 먼저 편성해 주세요.</p></div>)}
 
       {!loading && tab === "links" && <StaffLinks staff={staff} session={session} flash={flash} onFail={fail} />}
@@ -205,6 +230,14 @@ function Owner({ session, onLogout }: { session: string; onLogout: () => void })
           onClose={() => setEditDay(null)} />
       )}
       <div className={`toast ${toast ? "on" : ""}`}>{toast}</div>
+      {exporting && ev && (
+        <div style={{ position: "fixed", left: -20000, top: 0 }}>
+          <div ref={exportRef} className="exportMode">
+            <Calendar days={ev.days} m={m} title={`월영당 ${ymOf(m).replace("-", "년 ")}월 스케줄표`} />
+            <div className="mini" style={{ marginTop: 8 }}>월영당 근무표 · {new Date().toLocaleDateString("ko-KR")} 기준</div>
+          </div>
+        </div>
+      )}
     </div>
     </>
   );
@@ -320,7 +353,7 @@ function StaffLinks({ staff, session, flash, onFail }: { staff: DbStaff[]; sessi
 }
 
 function DayEditor({ m, d, ctx, roles, allowStar, onChange, onClose }: { m: number; d: number; ctx: MonthCtx; roles: Roles[]; allowStar: boolean; onChange: (i: number, v: string | null) => void; onClose: () => void }) {
-  const type = dayType(m, d), r = roles[d - 1], times = slotTimes(m, d, type), av = avail(ctx, d);
+  const type = dayType(m, d, ctx.busy), r = roles[d - 1], times = slotTimes(m, d, type), av = avail(ctx, d);
   const names = type === "wd" ? ["오픈", "미들", "마감"] : ["1번째", "2번째", "3번째", "4번째"];
   const ev = evaluate(ctx, roles, allowStar);
   const seen = new Set<string>(), dup = new Set<string>();
